@@ -10,8 +10,6 @@
 // Our current and target orientations and values
 sensors_vec_t  cur_orientation, target_orientation;
 float az_motor_pwm_speed, el_motor_pwm_speed; // last pwm speed set for motors
-bool az_change_motor_speed, el_change_motor_speed; // true if need to change speed
-unsigned long az_change_time_millis, el_change_time_millis; // time we started to change speed (for ramping)
 
 // How much to change each motor speed when ramping p/ms
 const float az_ramp_per_msec = float(az_motor_max_pwm) / float(az_ramp_time_msecs) ;
@@ -44,13 +42,11 @@ void rotator_setup()
   target_orientation = cur_orientation;
   az_motor_pwm_speed = 0 ;
   el_motor_pwm_speed = 0 ;
-  az_change_motor_speed = false ;
-  el_change_motor_speed = false ;
 }
 
 // Main loop of rotator to run the motors, check orientation, target etc
 //
-// MUST NOT BLOCK SO DON"T INTERFER WITH SERIAL COMMANDS
+// MUST NOT BLOCK SO DON"T INTERFERE WITH SERIAL COMMANDS
 long prev_msecs = millis() / millis_correction ;
 //
 void rotator_update()
@@ -67,7 +63,6 @@ void rotator_update()
     // Serial.println(cur_orientation.heading);
   #endif
 
-
   // ----------------------------------
   // Elevation calculations
   if (cur_orientation.pitch - (el_tolerance_degrees/2) > target_orientation.pitch)
@@ -83,13 +78,6 @@ void rotator_update()
   // Adjust elevation motors if required
   if ( el_motor_pwm_speed_wanted != el_motor_pwm_speed )
   {
-    // Is this the first iteration where we're changing speed?
-    if ( ! el_change_motor_speed )
-    {
-      // Need to now start changing motor speed to desired speed
-      el_change_motor_speed = true ;
-    }
-
     // Calculate how much to change pwm speed by based on ramp times
     if ( el_motor_pwm_speed_wanted > el_motor_pwm_speed )
       el_pwm_change = ( cur_msecs - prev_msecs ) * az_ramp_per_msec ;
@@ -101,7 +89,6 @@ void rotator_update()
     if ( abs(el_motor_pwm_speed_wanted - el_motor_pwm_speed) < 5)
     {
       el_motor_pwm_speed = el_motor_pwm_speed_wanted ;
-      el_change_motor_speed = false ;
       #ifdef DEBUG_SERIAL
         Serial.println(F("EL RAMP: TARGET REACHED"));
       #endif
@@ -134,13 +121,6 @@ void rotator_update()
   // Adjust azimuth motors if required
   if ( az_motor_pwm_speed_wanted != az_motor_pwm_speed )
   {
-    // Is this the first iteration where we're changing speed?
-    if ( ! az_change_motor_speed )
-    {
-      // Need to now start changing motor speed to desired speed
-      az_change_motor_speed = true ;
-    }
-
     // Calculate how much to change pwm speed by based on ramp times
     if ( az_motor_pwm_speed_wanted > az_motor_pwm_speed )
       az_pwm_change = ( cur_msecs - prev_msecs ) * az_ramp_per_msec ;
@@ -152,7 +132,6 @@ void rotator_update()
     if ( abs(az_motor_pwm_speed_wanted - az_motor_pwm_speed) < 5)
     {
       az_motor_pwm_speed = az_motor_pwm_speed_wanted ;
-      az_change_motor_speed = false ;
       #ifdef DEBUG_SERIAL
         Serial.println(F("AZ RAMP: TARGET REACHED"));
       #endif
