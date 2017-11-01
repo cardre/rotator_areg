@@ -9,7 +9,7 @@
 // Should eventually end up in flash/eeprom so can be configured later
 const int az_tolerance_degrees = 14 ;
 const int el_tolerance_degrees = 6 ;
-const int az_ramp_time_msecs = 500 ;
+const int az_ramp_time_msecs = 1000 ;
 const int el_ramp_time_msecs = 1000 ;
 const int az_min_degrees = -270 ;
 const int az_max_degrees = 270 ;
