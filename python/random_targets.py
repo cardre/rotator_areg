@@ -9,7 +9,10 @@
 import serial, time, random
 
 # Config these as required
-serial_path = '/dev/tty.usbmodem14121'
+# MacOS serial ports look like...
+# serial_path = '/dev/tty.usbmodem14121'
+# Linux serial ports look like...
+serial_path = '/dev/ttyACM0'
 serial_speed = 115200
 # min_az_degrees = -170
 # max_az_degrees = 170
