@@ -79,7 +79,7 @@ bool get_orientation(sensors_vec_t * orientation, bool initial_setting)
     // Within allowed change, accept it
     heading_errors_count = 0 ;
   }
-  if ( heading_errors_count == 0 )
+  if ( heading_errors_count == 0 || initial_setting )
   {
     orientation->heading = adj_heading ; // 0 degrees north, then positive clockwise
   }
