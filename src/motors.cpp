@@ -7,16 +7,6 @@
 #include "config.h"
 #include "motors.h"
 
-enum MotorStates
-{
-  stopped,
-  ramp_up,
-  moving,
-  ramp_down
-};
-MotorStates az_motor_state = stopped ;
-MotorStates el_motor_state = stopped ;
-
 bool last_dir_pitch_up;
 bool last_dir_clockwise;
 
@@ -25,8 +15,6 @@ void motors_setup()
 {
   last_dir_pitch_up = true;
   last_dir_clockwise = true;
-  az_motor_state = stopped ;
-  el_motor_state = stopped ;
 
   pinMode(M1, OUTPUT);
   set_az_motor_dir_pitch_up(last_dir_pitch_up);
