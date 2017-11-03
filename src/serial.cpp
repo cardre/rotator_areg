@@ -45,7 +45,7 @@ void serial_data_handler()
         {
           case 't':
           case 'T':
-            // Set target orientation, e.g. 'S123,45' (az,el)
+            // Set target orientation, e.g. 't123,45' (az,el)
             serial_cli_cmd_set_target();
             break;
           case 'g':
