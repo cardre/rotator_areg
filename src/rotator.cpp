@@ -15,6 +15,9 @@ float az_motor_pwm_speed, el_motor_pwm_speed; // last pwm speed set for motors
 const float az_ramp_per_msec = float(az_motor_max_pwm) / float(az_ramp_time_msecs) ;
 const float el_ramp_per_msec = float(el_motor_max_pwm) / float(el_ramp_time_msecs) ;
 
+// To disable any new movement from motors
+bool movement_disabled ;
+
 // Internal routine to set desired orientation
 void set_target(int azimuth, int elevation)
 {
@@ -29,6 +32,9 @@ void set_target(int azimuth, int elevation)
   // Now set our desired orientation
   target_orientation.heading = azimuth;
   target_orientation.pitch = elevation;
+
+  // We've now had a target set, so allow motors to move
+  movement_disabled = false ;
 }
 
 // Initial config and setup
@@ -42,11 +48,13 @@ void rotator_setup()
   target_orientation = cur_orientation;
   az_motor_pwm_speed = 0 ;
   el_motor_pwm_speed = 0 ;
+  movement_disabled = false ; // Don't start moving until we've been given a target
 }
 
 // Main loop of rotator to run the motors, check orientation, target etc
 //
 // MUST NOT BLOCK SO DON"T INTERFERE WITH SERIAL COMMANDS
+//
 long prev_msecs = millis() / millis_correction ;
 //
 void rotator_update()
@@ -65,15 +73,18 @@ void rotator_update()
 
   // ----------------------------------
   // Elevation calculations
-  if (cur_orientation.pitch - (el_tolerance_degrees/2) > target_orientation.pitch)
+  if ( ! movement_disabled )
   {
-    el_motor_pwm_speed_wanted = - el_motor_max_pwm ; // pitch down
+    if (cur_orientation.pitch - (el_tolerance_degrees/2) > target_orientation.pitch)
+    {
+      el_motor_pwm_speed_wanted = - el_motor_max_pwm ; // pitch down
+    }
+    else if (cur_orientation.pitch + (el_tolerance_degrees/2) < target_orientation.pitch)
+    {
+      el_motor_pwm_speed_wanted = el_motor_max_pwm ; // pitch up
+    }
+    // else otherwise we want to stop (default is already 0)
   }
-  else if (cur_orientation.pitch + (el_tolerance_degrees/2) < target_orientation.pitch)
-  {
-    el_motor_pwm_speed_wanted = el_motor_max_pwm ; // pitch up
-  }
-  // else otherwise we want to stop (default is already 0)
 
   // Adjust elevation motors if required
   if ( el_motor_pwm_speed_wanted != el_motor_pwm_speed )
@@ -108,15 +119,18 @@ void rotator_update()
 
   // ----------------------------------
   // Azimuth calculations
-  if (cur_orientation.heading - (az_tolerance_degrees/2) > target_orientation.heading)
+  if ( ! movement_disabled )
   {
-    az_motor_pwm_speed_wanted = - az_motor_max_pwm ; // anti-clockwise
+    if (cur_orientation.heading - (az_tolerance_degrees/2) > target_orientation.heading)
+    {
+      az_motor_pwm_speed_wanted = - az_motor_max_pwm ; // anti-clockwise
+    }
+    else if (cur_orientation.heading + (az_tolerance_degrees/2) < target_orientation.heading)
+    {
+      az_motor_pwm_speed_wanted = az_motor_max_pwm ; // clockwise
+    }
+    // else otherwise we want to stop (default is already 0)
   }
-  else if (cur_orientation.heading + (az_tolerance_degrees/2) < target_orientation.heading)
-  {
-    az_motor_pwm_speed_wanted = az_motor_max_pwm ; // clockwise
-  }
-  // else otherwise we want to stop (default is already 0)
 
   // Adjust azimuth motors if required
   if ( az_motor_pwm_speed_wanted != az_motor_pwm_speed )
@@ -184,13 +198,17 @@ void rotator_stop_motors()
   // Just set the target to our current orientation
   get_orientation(&cur_orientation);
   target_orientation = cur_orientation;
+  // movement_disabled = true ; // Still allow targetting of current orientation, so don't disable
 }
 
-// Tell rototar to immediately stop motors
+// Tell rototar to immediately stop motors and disable further movement
 void rotator_emergency_stop_motors()
 {
   set_el_motor_pwm_speed(0);
   set_az_motor_pwm_speed(0);
+  el_motor_pwm_speed = 0 ;
+  az_motor_pwm_speed = 0 ;
+  movement_disabled = true ;
   get_orientation(&cur_orientation);
   target_orientation = cur_orientation;
 }
