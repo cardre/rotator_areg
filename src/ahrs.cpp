@@ -17,7 +17,7 @@
 //  - values wrap and start going in opposite direction if max/min exceeded
 // Heading
 //  - 0 degress is magnetic north
-//    - add magnetic declination for your areat to get true north
+//    - add magnetic declination for your area to get true north
 //  - +90 degrees is west
 //  - -90 degrees is east
 //  - +/- 180 degrees is south (wraps around)
