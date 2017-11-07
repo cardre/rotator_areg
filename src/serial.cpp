@@ -30,7 +30,7 @@ void serial_data_handler()
   switch (serial_buffer[0])
   {
     // All the chars for our simple CLI serial interface
-    case 't': // Set target
+    case 't': // set Target
     case 'T':
     case 'g': // Get current orientation
     case 'G':
@@ -107,13 +107,13 @@ void serial_cli_cmd_set_target()
   {
     // Should be 2 values comma separated
     * comma_ptr = 0 ; // terminate az string
-    azimuth = String(serial_buffer + 1).toInt(); // +1 to jump over 's'
+    azimuth = String(serial_buffer + 1).toInt(); // +1 to jump over 't'
     elevation = String(comma_ptr + 1).toInt(); // +1 to jump over ','
   }
   else
   {
     // Single value, only set azimuth and elevation to 0
-    azimuth = String(serial_buffer + 1).toInt(); // +1 to jump over 's'
+    azimuth = String(serial_buffer + 1).toInt(); // +1 to jump over 't'
   }
 
   // Now set the target
@@ -124,7 +124,7 @@ void serial_cli_cmd_set_target()
   Serial.print(azimuth);
   Serial.print(F(" "));
   Serial.print(elevation);
-  Serial.println(F(""));
+  Serial.println();
 }
 
 // Outputs to serial the current orientation of the rotator
@@ -138,7 +138,7 @@ void serial_cli_cmd_get_orientation()
   Serial.print(cur_orientation.azimuth);
   Serial.print(F(" "));
   Serial.print(cur_orientation.elevation);
-  Serial.println(F(""));
+  Serial.println();
 }
 
 // Stop motors (ramp down)

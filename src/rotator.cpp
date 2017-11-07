@@ -53,7 +53,7 @@ void rotator_setup()
 
 // Main loop of rotator to run the motors, check orientation, target etc
 //
-// MUST NOT BLOCK SO DON"T INTERFERE WITH SERIAL COMMANDS
+// MUST NOT BLOCK AS WILL INTERFERE WITH SERIAL COMMANDS!
 //
 long prev_msecs = millis() / millis_correction ;
 //
