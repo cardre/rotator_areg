@@ -27,3 +27,6 @@ const int millis_correction = 8 ;
 // Magnetometer sometimes returns strange values, this sets limit to how many we'll accept
 const int max_heading_degrees_change_allowed = 20 ; // If we exceed previous value by this much, ignore/error
 const int max_heading_errors_allowed = 30 ; // Start accepting values after this many times
+
+// How long to lockout movement for after E stop if still receiving targets
+const long movement_disabled_lockout_millis = 10000 ;

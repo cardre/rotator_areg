@@ -17,24 +17,32 @@ const float el_ramp_per_msec = float(el_motor_max_pwm) / float(el_ramp_time_msec
 
 // To disable any new movement from motors
 bool movement_disabled ;
+long movement_disabled_millis ; // time when movement was stopped
+
+// Updated for each iteration of rotator logic
+long prev_msecs = millis() / millis_correction ;
 
 // Internal routine to set desired orientation
 void set_target(int azimuth, int elevation)
 {
-  // Limit azimuth to +/- 180 degrees where 0 = north, 90 = east etc
-  while (azimuth > 180 ) azimuth -= 360 ;
-  while (azimuth < -180 ) azimuth += 360 ;
+  // Only update a new target if we've exceeded our movement disabled start time
+  if ( prev_msecs > movement_disabled_millis + movement_disabled_lockout_millis )
+  {
+    // Limit azimuth to +/- 180 degrees where 0 = north, 90 = east etc
+    while (azimuth > 180 ) azimuth -= 360 ;
+    while (azimuth < -180 ) azimuth += 360 ;
 
-  // Limit elevation to our min/max values
-  if (elevation > el_max_degrees) elevation = el_max_degrees ;
-  if (elevation < el_min_degrees) elevation = el_min_degrees ;
+    // Limit elevation to our min/max values
+    if (elevation > el_max_degrees) elevation = el_max_degrees ;
+    if (elevation < el_min_degrees) elevation = el_min_degrees ;
 
-  // Now set our desired orientation
-  target_orientation.heading = azimuth;
-  target_orientation.pitch = elevation;
+    // Now set our desired orientation
+    target_orientation.heading = azimuth;
+    target_orientation.pitch = elevation;
 
-  // We've now had a target set, so allow motors to move
-  movement_disabled = false ;
+    // We've now had a target set, so allow motors to move
+    movement_disabled = false ;
+  }
 }
 
 // Initial config and setup
@@ -48,14 +56,13 @@ void rotator_setup()
   target_orientation = cur_orientation;
   az_motor_pwm_speed = 0 ;
   el_motor_pwm_speed = 0 ;
-  movement_disabled = false ; // Don't start moving until we've been given a target
+  movement_disabled = true ; // Don't start moving until we've been given a target
+  movement_disabled_millis = - movement_disabled_lockout_millis ; // so can start targetting immediately
 }
 
 // Main loop of rotator to run the motors, check orientation, target etc
 //
 // MUST NOT BLOCK AS WILL INTERFERE WITH SERIAL COMMANDS!
-//
-long prev_msecs = millis() / millis_correction ;
 //
 void rotator_update()
 {
@@ -209,6 +216,7 @@ void rotator_emergency_stop_motors()
   el_motor_pwm_speed = 0 ;
   az_motor_pwm_speed = 0 ;
   movement_disabled = true ;
+  movement_disabled_millis = prev_msecs ; // start time of lockout
   get_orientation(&cur_orientation);
   target_orientation = cur_orientation;
 }
