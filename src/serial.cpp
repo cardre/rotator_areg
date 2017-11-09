@@ -38,6 +38,8 @@ void serial_data_handler()
     case 'S':
     case 'e': // Emergency stop motors immediately
     case 'E':
+    case 'h': // Move to home positoin
+    case 'H':
       if ( strchr(serial_buffer, eol) )
       {
         // Got a complete cmd, so process it
@@ -62,6 +64,11 @@ void serial_data_handler()
           case 'E':
             // Emergency stop motors immediately
             serial_cli_cmd_emergency_stop_motors();
+            break;
+          case 'h':
+          case 'H':
+            // Move to home position 0,0
+            serial_cli_cmd_home_orientation();
             break;
         }
         // Cmd has been handled, clear out buffer
@@ -155,4 +162,12 @@ void serial_cli_cmd_emergency_stop_motors()
 {
   rotator_emergency_stop_motors();
   Serial.print(F("EMERGENCY Stop motors\n"));
+}
+
+// Move to home orientation
+//
+void serial_cli_cmd_home_orientation()
+{
+  rotator_home_orientation();
+  Serial.print(F("Move to Home orientation (0,0)\n"));
 }

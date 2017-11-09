@@ -20,6 +20,7 @@ void setup()
   Serial.println(F("Simple CLI serial commands:"));
   Serial.println(F("  t|T<azimuth>,<elevation> = set target, e.g. 't90,30' is East with 30 degrees elevation"));
   Serial.println(F("  g|G - get current orientation, returns azimuth elevation, e.g. 'current_orientation: 145 0'"));
+  Serial.println(F("  h|H - move to Home orientation (0,0)"));
   Serial.println(F("  s|S - stop motors (nicely) by ramping down"));
   Serial.println(F("  e|E - EMERGENCY stop motors immediately"));
   Serial.println();

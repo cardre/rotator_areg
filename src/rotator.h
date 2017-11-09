@@ -20,3 +20,4 @@ void rotator_target_orientation(rotator_values target);
 void rotator_current_orientation(rotator_values * return_values);
 void rotator_stop_motors();
 void rotator_emergency_stop_motors();
+void rotator_home_orientation();

@@ -220,3 +220,10 @@ void rotator_emergency_stop_motors()
   get_orientation(&cur_orientation);
   target_orientation = cur_orientation;
 }
+
+// Tell rotator to move to home position (0,0)
+void rotator_home_orientation()
+{
+  // Just set the target 0,0
+  set_target(0,0);
+}
