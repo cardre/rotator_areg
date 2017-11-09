@@ -38,7 +38,7 @@ void serial_data_handler()
     case 'S':
     case 'e': // Emergency stop motors immediately
     case 'E':
-    case 'h': // Move to home positoin
+    case 'h': // Move to home orientation
     case 'H':
       if ( strchr(serial_buffer, eol) )
       {
@@ -67,7 +67,7 @@ void serial_data_handler()
             break;
           case 'h':
           case 'H':
-            // Move to home position 0,0
+            // Move to home orientation 0,0
             serial_cli_cmd_home_orientation();
             break;
         }
