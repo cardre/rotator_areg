@@ -16,4 +16,8 @@ void serial_cli_cmd_stop_motors();
 void serial_cli_cmd_emergency_stop_motors();
 void serial_cli_cmd_home_orientation();
 
-// SPID protocol - TODO
+// SPID ROT2 prototocl
+void serial_spid_rot2_parse_command();
+void serial_spid_rot2_send_response();
+int serial_spid_rot2_parse_direction( byte *buf, byte len,  bool *err );
+bool serial_spid_rot2_find_eol( byte *buf, byte len, char eol );

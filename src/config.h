@@ -4,6 +4,7 @@
 
 // Define if you want debug serial messages printed
 #undef DEBUG_SERIAL
+#define DISABLE_SPLASH_SCREEN
 
 // Initial values for configuration parameters
 // Should eventually end up in flash/eeprom so can be configured later

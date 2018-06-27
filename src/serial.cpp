@@ -9,10 +9,15 @@
 
 // Serial data buffer handling
 const int serial_buffer_size = 30;
-const char eol = byte('\n');
-char serial_buffer[serial_buffer_size];
+byte serial_buffer[serial_buffer_size];
 byte next_serial_index = serial_buffer_size ; // so inital clear zeros buffer
 
+// CLI constants
+const char cli_eol = byte('\n');
+
+// SPID rot2 constants
+const char spid_eol = 0x20;                 //space
+const char spid_pulse_resolution = 0x01;    // report one pulse per degree resolution
 
 // Simple serial data handler
 //
@@ -30,7 +35,7 @@ void serial_data_handler()
   switch (serial_buffer[0])
   {
     // All the chars for our simple CLI serial interface
-    case 't': // set Target
+    case 't': // Set target
     case 'T':
     case 'g': // Get current orientation
     case 'G':
@@ -40,9 +45,11 @@ void serial_data_handler()
     case 'E':
     case 'h': // Move to home orientation
     case 'H':
-      if ( strchr(serial_buffer, eol) )
+    case 'w': // Alphasid Rot2 protocol
+    case 'W':
+      if ( strchr( (char *)serial_buffer, cli_eol) )               // cli uses newline
       {
-        // Got a complete cmd, so process it
+        // Got a complete cli cmd, so process it
         switch (serial_buffer[0])
         {
           case 't':
@@ -69,8 +76,22 @@ void serial_data_handler()
           case 'H':
             // Move to home orientation 0,0
             serial_cli_cmd_home_orientation();
+           break;
+        }
+        // Cmd has been handled, clear out buffer
+        serial_data_clear();
+      }
+      else if ( serial_spid_rot2_find_eol( serial_buffer, sizeof(serial_buffer), spid_eol) )
+      {
+        // may have a complete spid cmd, so process it
+        switch (serial_buffer[0])
+        {
+          case 'w':
+          case 'W':
+            serial_spid_rot2_parse_command();
             break;
         }
+
         // Cmd has been handled, clear out buffer
         serial_data_clear();
       }
@@ -101,26 +122,26 @@ void serial_data_clear()
 }
 
 // Process the CLI cmd to set target
-// format is [s|S][\-,0..9]*()\,[\-,0..9]*).
-// e.g. east & 45 degree elevation = 'S90,45'
-// e.g. west and no change to elevation = 's-90'
+// format is [t|T][\-,0..9]*()\,[\-,0..9]*).
+// e.g. east & 45 degree elevation = 'T90,45'
+// e.g. west and no change to elevation = 't-90'
 void serial_cli_cmd_set_target()
 {
   int azimuth, elevation = 0 ;
 
   // See if we have 1 (az) or 2 (az,el) numbers
-  char * comma_ptr = strchr(serial_buffer, ',');
+  char * comma_ptr = strchr((char *)serial_buffer, ',');
   if ( comma_ptr )
   {
     // Should be 2 values comma separated
     * comma_ptr = 0 ; // terminate az string
-    azimuth = String(serial_buffer + 1).toInt(); // +1 to jump over 't'
+    azimuth = String((char *)serial_buffer + 1).toInt(); // +1 to jump over 't'
     elevation = String(comma_ptr + 1).toInt(); // +1 to jump over ','
   }
   else
   {
     // Single value, only set azimuth and elevation to 0
-    azimuth = String(serial_buffer + 1).toInt(); // +1 to jump over 't'
+    azimuth = String((char *)serial_buffer + 1).toInt(); // +1 to jump over 's'
   }
 
   // Now set the target
@@ -170,4 +191,112 @@ void serial_cli_cmd_home_orientation()
 {
   rotator_home_orientation();
   Serial.print(F("Move to Home orientation (0,0)\n"));
+}
+
+// Spid Rot2 protocol
+//
+void serial_spid_rot2_parse_command()
+{
+  int azimuth, elevation = 0;
+  bool error = false;
+
+  switch (serial_buffer[11])    // command byte
+  {
+    case 0x0f:    // stop
+      rotator_stop_motors();              //use slow down mechanisms
+      delay(0.5);                         //give motors time to stop
+      serial_spid_rot2_send_response();   //send current position
+      break;
+    case 0x1f:    // status
+      serial_spid_rot2_send_response();   //send current position
+      break;
+    case 0x2f:    // set
+      // parse valus from buffer
+      azimuth = serial_spid_rot2_parse_direction( &serial_buffer[1], 4, &error );
+      elevation = serial_spid_rot2_parse_direction( &serial_buffer[6], 4, &error );
+
+      //move rotator if no errors in parsing values
+      if( !error )
+        rotator_target_orientation( azimuth, elevation );
+      break;
+    default:
+      break;
+  }
+}
+
+void serial_spid_rot2_send_response()
+{
+  // fetch current position
+  rotator_values cur_orientation;
+  rotator_current_orientation(&cur_orientation);
+
+  // prepare az/el values
+  uint16_t az = cur_orientation.azimuth + 360;     //no negative numbers
+  uint16_t el = cur_orientation.elevation + 360;
+
+  // fill buffer old school method
+  char buf[12];
+  buf[0] = 0x57;
+  buf[1] = (az % 1000) / 100;
+  buf[2] = (az % 100) / 10;
+  buf[3] = (az % 10) / 1;
+  buf[4] = 0x00;                      // ignore the 1/10th value
+  buf[5] = spid_pulse_resolution;
+  buf[6] = (el % 1000) / 100;
+  buf[7] = (el % 100) / 10;
+  buf[8] = (el % 10) / 1;
+  buf[9] = 0x00;                      // ignore the 1/10th value
+  buf[10] = spid_pulse_resolution;
+  buf[11] = 0x20;
+
+  // send entire buffer
+  Serial.write(buf,12);
+}
+
+int serial_spid_rot2_parse_direction( byte *buf, byte len, bool *err )
+{
+  // don't do something stupid, make sure buf and len are valid
+  if ((len != 4) || (buf == NULL))
+  {
+    *err = true;
+    return 0;
+  }
+
+  // rebuild unsigned value stored in buf
+  uint16_t u_dir = ((buf[0] - 0x30) * 1000);
+  u_dir += ((buf[1] - 0x30) * 100);
+  u_dir += ((buf[2] - 0x30) * 10);
+  u_dir += ((buf[3] - 0x30) * 1);
+
+  // application should have read spid pulse resolution from status packet,
+  // ignore anything invalid
+  if( buf[4] != spid_pulse_resolution )
+  {
+    *err = true;
+    return 0;
+  }
+
+  // make sure that unsigned direction is sane
+  if (u_dir > (3*360*spid_pulse_resolution))     // three full rotations !
+  {
+    *err = true;
+    return 0;
+  }
+
+  *err = false;
+
+  //now calculate and return the result
+  return (int)( u_dir / spid_pulse_resolution ) - 360;   //yes negative numbers are allowed
+}
+
+// binary equivalent of strchr()
+bool serial_spid_rot2_find_eol( byte *buf, byte len, char eol )
+{
+  for( byte i = 0; i < len; i++)
+  {
+    if( buf[i] == eol )
+      return true;
+  }
+
+  return false;
 }
