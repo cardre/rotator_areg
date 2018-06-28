@@ -11,6 +11,7 @@
 const int serial_buffer_size = 30;
 byte serial_buffer[serial_buffer_size];
 byte next_serial_index = serial_buffer_size ; // so inital clear zeros buffer
+bool serial_help_sent = false;
 
 // CLI constants
 const char cli_eol = byte('\n');
@@ -47,6 +48,7 @@ void serial_data_handler()
     case 'H':
     case 'w': // Alphasid Rot2 protocol
     case 'W':
+    case '?':
       if ( strchr( (char *)serial_buffer, cli_eol) )               // cli uses newline
       {
         // Got a complete cli cmd, so process it
@@ -76,7 +78,11 @@ void serial_data_handler()
           case 'H':
             // Move to home orientation 0,0
             serial_cli_cmd_home_orientation();
-           break;
+            break;
+          case '?':
+            // print help screen
+            serial_print_help();
+            break;
         }
         // Cmd has been handled, clear out buffer
         serial_data_clear();
@@ -106,7 +112,14 @@ void serial_data_handler()
         return;
       }
       break;
-
+    case cli_eol:
+      if( !serial_help_sent )
+      {
+        serial_help_sent = true;
+        serial_print_help();
+      }
+      serial_data_clear();
+      break;
     default:
       // No one handled the serial data byte, so throw it away
       serial_data_clear();
@@ -299,4 +312,18 @@ bool serial_spid_rot2_find_eol( byte *buf, byte len, char eol )
   }
 
   return false;
+}
+
+void serial_print_help(void)
+{
+  Serial.println(F("Az/El Rotator - www.areg.org.au"));
+  Serial.println();
+  Serial.println(F("Simple CLI serial commands:"));
+  Serial.println(F("  t|T<azimuth>,<elevation> = set target, e.g. 't90,30' is East with 30 degrees elevation"));
+  Serial.println(F("  g|G - get current orientation, returns azimuth elevation, e.g. 'current_orientation: 145 0'"));
+  Serial.println(F("  h|H - move to Home orientation (0,0)"));
+  Serial.println(F("  s|S - stop motors (nicely) by ramping down"));
+  Serial.println(F("  e|E - EMERGENCY stop motors immediately"));
+  Serial.println(F("   ?  - Help"));
+  Serial.println();
 }
