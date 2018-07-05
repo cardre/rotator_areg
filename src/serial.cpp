@@ -224,9 +224,21 @@ void serial_spid_rot2_parse_command()
       serial_spid_rot2_send_response();   //send current position
       break;
     case 0x2f:    // set
-      // parse valus from buffer
+      // parse value from serial buffer
       azimuth = serial_spid_rot2_parse_direction( &serial_buffer[1], 4, &error );
       elevation = serial_spid_rot2_parse_direction( &serial_buffer[6], 4, &error );
+
+      // range check and limit the azimuth
+      if( azimuth < az_min_degrees )
+        azimuth = az_min_degrees;
+      else if( azimuth > az_max_degrees )
+        azimuth = az_max_degrees;
+
+      // range check and limit the elevation
+      if( elevation < el_min_degrees )
+        elevation = el_min_degrees;
+      else if( elevation > el_max_degrees )
+        elevation = el_max_degrees;
 
       //move rotator if no errors in parsing values
       if( !error )
@@ -290,7 +302,7 @@ int serial_spid_rot2_parse_direction( byte *buf, byte len, bool *err )
   }
 
   // make sure that unsigned direction is sane
-  if (u_dir > (3*360*spid_pulse_resolution))     // three full rotations !
+  if (u_dir > (720*spid_pulse_resolution))     // three full rotations !
   {
     *err = true;
     return 0;

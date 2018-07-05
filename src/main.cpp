@@ -11,7 +11,6 @@
 #include "rotator.h"
 #include "serial.h"
 
-
 void setup()
 {
   // enable serial port
