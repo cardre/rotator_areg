@@ -2,7 +2,6 @@
 // rototor_areg
 // VK5CD
 
-#include <Arduino.h>
 #include "serial.h"
 #include "rotator.h"
 #include "config.h"
@@ -32,10 +31,18 @@ void serial_data_handler()
     serial_buffer[next_serial_index++] = Serial.read() ;
     // DEBUG check -> Serial.println(serial_buffer);
   }
+  else
+  {
+    // Buffer overflowed, so clear all data and start again
+    serial_data_clear();
+    return;
+  }
 
-  switch (serial_buffer[0])
+  switch (serial_buffer[0]) // check first byte of buffer
   {
     // All the chars for our simple CLI serial interface
+    // (Make sure 1st byte does not conflict with other protocols below)
+    //
     case 't': // Set target
     case 'T':
     case 'g': // Get current orientation
@@ -46,10 +53,10 @@ void serial_data_handler()
     case 'E':
     case 'h': // Move to home orientation
     case 'H':
-    case 'w': // Alphasid Rot2 protocol
-    case 'W':
-    case '?':
-      if ( strchr( (char *)serial_buffer, cli_eol) )               // cli uses newline
+    case '?': // Display help
+    case cli_eol:
+      // Do we have a complete line to process?
+      if ( strchr( (char *)serial_buffer, cli_eol) )
       {
         // Got a complete cli cmd, so process it
         switch (serial_buffer[0])
@@ -80,48 +87,35 @@ void serial_data_handler()
             serial_cli_cmd_home_orientation();
             break;
           case '?':
+          case cli_eol:
             // print help screen
-            serial_print_help();
+            serial_cli_print_help();
             break;
         }
         // Cmd has been handled, clear out buffer
         serial_data_clear();
       }
-      else if ( serial_spid_rot2_find_eol( serial_buffer, sizeof(serial_buffer), spid_eol) )
-      {
-        // may have a complete spid cmd, so process it
-        switch (serial_buffer[0])
-        {
-          case 'w':
-          case 'W':
-            serial_spid_rot2_parse_command();
-            break;
-        }
+      break;
 
-        // Cmd has been handled, clear out buffer
+    // Alphasid Rot2 protocol packet (always begins with 'W')
+    //
+    case 'W': // 0x57
+      // Check have a 13 byte long command packet that terminates in spid_eol
+      if ( next_serial_index > 12 )
+      {
+        // Check have a complete spid cmd, so process it
+        if ( serial_buffer[12] == spid_eol )
+        {
+          serial_spid_rot2_parse_command();
+        }
+        // Cmd has been handled/ignored, clear out buffer
         serial_data_clear();
       }
-      else if ( next_serial_index >= serial_buffer_size )
-      {
-        // Buffer Overflowed, so clear all data and start again
-        serial_data_clear();
-      }
-      else
-      {
-        // Still waiting for more data to get 'end of line', so return now
-        return;
-      }
       break;
-    case cli_eol:
-      if( !serial_help_sent )
-      {
-        serial_help_sent = true;
-        serial_print_help();
-      }
-      serial_data_clear();
-      break;
+
+    // No one handled the 1st serial data byte, so throw it away
+    //
     default:
-      // No one handled the serial data byte, so throw it away
       serial_data_clear();
   }
 }
@@ -133,6 +127,8 @@ void serial_data_clear()
   memset(serial_buffer, 0, next_serial_index);
   next_serial_index = 0 ;
 }
+
+// ------------- CLI protocol ----------------
 
 // Process the CLI cmd to set target
 // format is [t|T][\-,0..9]*()\,[\-,0..9]*).
@@ -206,7 +202,25 @@ void serial_cli_cmd_home_orientation()
   Serial.print(F("Move to Home orientation (0,0)\n"));
 }
 
-// Spid Rot2 protocol
+// Help/banner info
+//
+void serial_cli_print_help(void)
+{
+  Serial.println(F("Az/El Rotator - www.areg.org.au"));
+  Serial.println();
+  Serial.println(F("Simple CLI serial commands:"));
+  Serial.println(F("  t|T<azimuth>,<elevation> = set target, e.g. 't90,30' is East with 30 degrees elevation"));
+  Serial.println(F("  g|G - get current orientation, returns azimuth elevation, e.g. 'current_orientation: 145 0'"));
+  Serial.println(F("  h|H - move to Home orientation (0,0)"));
+  Serial.println(F("  s|S - stop motors (nicely) by ramping down"));
+  Serial.println(F("  e|E - EMERGENCY stop motors immediately"));
+  Serial.println(F("   ?  - Help"));
+  Serial.println();
+}
+
+// ------------- Spid Rot2 protocol ----------------
+
+// Spid Rot2 protocol parsing
 //
 void serial_spid_rot2_parse_command()
 {
@@ -217,7 +231,7 @@ void serial_spid_rot2_parse_command()
   {
     case 0x0f:    // stop
       rotator_stop_motors();              //use slow down mechanisms
-      delay(0.5);                         //give motors time to stop
+      delay(0.5);                         //give motors time to stop <- TODO can't have delay! blocks motor control
       serial_spid_rot2_send_response();   //send current position
       break;
     case 0x1f:    // status
@@ -229,6 +243,7 @@ void serial_spid_rot2_parse_command()
       elevation = serial_spid_rot2_parse_direction( &serial_buffer[6], 4, &error );
 
       // range check and limit the azimuth
+      // TODO - need to account for wind up here
       if( azimuth < az_min_degrees )
         azimuth = az_min_degrees;
       else if( azimuth > az_max_degrees )
@@ -256,6 +271,7 @@ void serial_spid_rot2_send_response()
   rotator_current_orientation(&cur_orientation);
 
   // prepare az/el values
+  // TODO - check wind up values?
   uint16_t az = cur_orientation.azimuth + 360;     //no negative numbers
   uint16_t el = cur_orientation.elevation + 360;
 
@@ -312,30 +328,4 @@ int serial_spid_rot2_parse_direction( byte *buf, byte len, bool *err )
 
   //now calculate and return the result
   return (int)( u_dir / spid_pulse_resolution ) - 360;   //yes negative numbers are allowed
-}
-
-// binary equivalent of strchr()
-bool serial_spid_rot2_find_eol( byte *buf, byte len, char eol )
-{
-  for( byte i = 0; i < len; i++)
-  {
-    if( buf[i] == eol )
-      return true;
-  }
-
-  return false;
-}
-
-void serial_print_help(void)
-{
-  Serial.println(F("Az/El Rotator - www.areg.org.au"));
-  Serial.println();
-  Serial.println(F("Simple CLI serial commands:"));
-  Serial.println(F("  t|T<azimuth>,<elevation> = set target, e.g. 't90,30' is East with 30 degrees elevation"));
-  Serial.println(F("  g|G - get current orientation, returns azimuth elevation, e.g. 'current_orientation: 145 0'"));
-  Serial.println(F("  h|H - move to Home orientation (0,0)"));
-  Serial.println(F("  s|S - stop motors (nicely) by ramping down"));
-  Serial.println(F("  e|E - EMERGENCY stop motors immediately"));
-  Serial.println(F("   ?  - Help"));
-  Serial.println();
 }
